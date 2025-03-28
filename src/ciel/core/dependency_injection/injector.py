@@ -6,9 +6,10 @@ T = TypeVar("T")
 if TYPE_CHECKING:
     from .container import Container
 
+
 class Parameter:
 
-    def __init__(self, name:str) -> None:
+    def __init__(self, name: str) -> None:
         self.name: str = name
         self.has_default: bool = False
         self.default: Any = None
@@ -17,6 +18,7 @@ class Parameter:
     def set_default(self, default: Any) -> None:
         self.default = default
         self.has_default = True
+
 
 class Injector(Generic[T]):
 
@@ -53,7 +55,6 @@ class Injector(Generic[T]):
 
             if param.kind not in [inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL]:
                 self.param[name] = res
-
 
     def __call__(self, *args: Any, **kwargs: Any) -> T:
         res_args: list[Any] = list(args)

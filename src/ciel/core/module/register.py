@@ -1,6 +1,7 @@
 from collections import defaultdict
 from .module import Module, ModuleManifest
 
+
 class ModuleRegister:
 
     def __init__(self, modules: list[Module]) -> None:

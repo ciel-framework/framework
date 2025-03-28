@@ -1,6 +1,6 @@
 from .dependency_injection import Container
 from pathlib import Path
-from .module import ModuleRegister, ModuleManifest
+from .module import ModuleRegister, Module
 
 
 class Application(Container, ModuleRegister):
@@ -16,12 +16,10 @@ class Application(Container, ModuleRegister):
         for mod in self.modules:
             (self ^ mod.boot)()
 
-    def __init__(self, base_path: Path, modules: list[ModuleManifest]) -> None:
+    def __init__(self, base_path: Path, modules: list[Module]) -> None:
         self.base_path: Path = base_path
 
         Container.__init__(self)
         ModuleRegister.__init__(self, modules)
 
         self._initialize_container()
-
-

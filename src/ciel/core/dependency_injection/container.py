@@ -3,6 +3,7 @@ from .injector import Injector
 
 T = TypeVar("T")
 
+
 class BindingIdentifier(Generic[T]):
 
     @staticmethod
@@ -21,9 +22,11 @@ class BindingIdentifier(Generic[T]):
     def __hash__(self) -> int:
         return hash(self.name)
 
+
 class Binding(Generic[T]):
 
-    def __init__(self, container: "Container", contract: type[T], builder: Optional[Callable[..., T]], singleton: bool = False) -> None:
+    def __init__(self, container: "Container", contract: type[T], builder: Optional[Callable[..., T]],
+                 singleton: bool = False) -> None:
         if builder is None:
             builder = contract
 
@@ -35,19 +38,26 @@ class Binding(Generic[T]):
     def __call__(self, *args: Any, **kwargs: Any) -> T:
         return self.builder(*args, **kwargs)
 
+
 class Container:
     def __init__(self) -> None:
         self.bindings: dict[BindingIdentifier[Any], Binding[Any]] = dict()
         self.singletons: dict[BindingIdentifier[Any], Any] = dict()
         self.aliases: dict[str, BindingIdentifier[Any]] = dict()
 
-    def transient(self, contract: type[T], builder: Optional[Callable[..., T]] = None, aliases: Optional[list[str]] = None) -> None:
+    def transient(
+            self,
+            contract: type[T],
+            builder: Optional[Callable[..., T]] = None,
+            aliases: Optional[list[str]] = None) -> None:
         self._bind(contract, builder, aliases, False)
 
-    def singleton(self, contract: type[T], builder: Optional[Callable[..., T]] = None, aliases: Optional[list[str]] = None) -> None:
+    def singleton(self, contract: type[T], builder: Optional[Callable[..., T]] = None,
+                  aliases: Optional[list[str]] = None) -> None:
         self._bind(contract, builder, aliases, True)
 
-    def _bind(self, contract: type[T], builder: Optional[Callable[..., T]], aliases: Optional[list[str]], singleton: bool) -> None:
+    def _bind(self, contract: type[T], builder: Optional[Callable[..., T]], aliases: Optional[list[str]],
+              singleton: bool) -> None:
         res = Binding(self, contract, builder, singleton)
         self.bindings[res.id] = res
         if aliases is not None:
@@ -102,12 +112,11 @@ class Container:
     def inject(self, cl: Callable[..., T]) -> Injector[T]:
         return Injector(self, cl)
 
-    def __getitem__(self, binding: str|type[T]) -> T:
+    def __getitem__(self, binding: str | type[T]) -> T:
         return self.make(binding)
 
-    def __setitem__(self, binding: str|type[T], value: T) -> None:
+    def __setitem__(self, binding: str | type[T], value: T) -> None:
         self.instance(binding, value)
 
     def __xor__(self, cl: Callable[..., T] | type) -> Injector[T]:
         return self.inject(cl)
-

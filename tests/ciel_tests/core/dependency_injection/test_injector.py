@@ -2,6 +2,7 @@ import unittest
 from ciel.core.dependency_injection.container import Container  # type: ignore
 from ciel.core.dependency_injection.injector import Injector  # type: ignore
 
+
 class TestInjector(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -14,6 +15,7 @@ class TestInjector(unittest.TestCase):
     def test_function_no_parameters(self) -> None:
         def func() -> str:
             return "World"
+
         injector = Injector(self.container, func)
         result = injector()
         self.assertEqual(result, "World")
@@ -21,6 +23,7 @@ class TestInjector(unittest.TestCase):
     def test_function_injection(self) -> None:
         def func(a: int, b: str) -> tuple[int, str]:
             return a, b
+
         injector = Injector(self.container, func)
         result = injector()
         self.assertEqual(result, (42, "Hello"))
@@ -28,6 +31,7 @@ class TestInjector(unittest.TestCase):
     def test_function_with_default(self) -> None:
         def func(a: float = 69.0, b: str = "default") -> tuple[float, str]:
             return a, b
+
         injector = Injector(self.container, func)
         result1 = injector()
         self.assertEqual(result1, (69.0, "Hello"))
@@ -38,6 +42,7 @@ class TestInjector(unittest.TestCase):
     def test_missing_parameter_raises_error(self) -> None:
         def func(a, b: int) -> int:  # type: ignore
             return a + b  # type: ignore
+
         injector = Injector(self.container, func)
 
         with self.assertRaises(ValueError) as context:

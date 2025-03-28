@@ -1,11 +1,14 @@
 import unittest
-from ciel.core.dependency_injection.container import Container, BindingIdentifier, Binding  # type: ignore
+from ciel.core.dependency_injection.container import Container, BindingIdentifier  # type: ignore
+
 
 class A:
     pass
 
+
 class B:
     pass
+
 
 class TestBindingIdentifier(unittest.TestCase):
 
@@ -82,7 +85,7 @@ class TestContainer(unittest.TestCase):
 
         self.container.transient(Dummy, aliases=["dummy_transient"])
         instance1 = self.container.make(Dummy)
-        instance2 = self.container.make("dummy_transient")
+        instance2: Dummy = self.container.make("dummy_transient")
 
         self.assertIsInstance(instance2, Dummy)
         self.assertIsNot(instance1, instance2)
@@ -93,7 +96,7 @@ class TestContainer(unittest.TestCase):
 
         self.container.singleton(Dummy, aliases=["dummy_singleton"])
         instance1 = self.container.make(Dummy)
-        instance2 = self.container.make("dummy_singleton")
+        instance2: Dummy = self.container.make("dummy_singleton")
 
         self.assertIs(instance1, instance2)
 
