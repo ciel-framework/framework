@@ -1,53 +1,27 @@
-from .config import Config
 from .dependency_injection import Container
 from pathlib import Path
+from .module import ModuleRegister, ModuleManifest
 
-from .service_provider import ServiceProvider
 
+class Application(Container, ModuleRegister):
 
-class ApplicationBuilder:
+    def _initialize_container(self) -> None:
+        self.singleton(Application, aliases=["Application"])
+        self[Application] = self
 
-    def __init__(self: "ApplicationBuilder", base_path: Path) -> None:
-        self.config_path = base_path / "config"
+        for mod in self.modules:
+            mod.register(self)
 
-    def build(self):
-        app = Application(
-            self.config_path
-        )
-        app.setup()
+    def _boot(self) -> None:
+        for mod in self.modules:
+            (self ^ mod.boot)()
 
-class Application:
+    def __init__(self, base_path: Path, modules: list[ModuleManifest]) -> None:
+        self.base_path: Path = base_path
 
-    def __init__(self: "Application", config_path: Path) -> None:
-        self.container: Container = Container()
-        self.config_path: Path = config_path
-        self.services: list[ServiceProvider] = []
+        Container.__init__(self)
+        ModuleRegister.__init__(self, modules)
 
-    def _initialize_container(self):
-        self.container.singleton(self.__class__, lambda app: None)
-        self.container[self.__class__] = self
-
-        self.container.singleton(Config)
-
-    def _register_services(self):
-        for service in self.container[Config].get('app.services'):
-            serv: ServiceProvider = service()
-            (self.container ^ serv.register)()
-            self.services.append(serv)
-
-    def _boot(self):
-        for service in self.services:
-            (self.container ^ service.boot)()
-
-    def setup(self) -> None:
         self._initialize_container()
-        self._register_services()
-
-    @staticmethod
-    def configure(base_path: Path) -> ApplicationBuilder:
-        return ApplicationBuilder(base_path)
-
-    async def handle(self, scope, receive, send) -> None:
-        pass
 
 
