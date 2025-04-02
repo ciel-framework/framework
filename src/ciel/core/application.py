@@ -1,5 +1,7 @@
-from .dependency_injection import Container
+from .meta import Container
 from pathlib import Path
+
+from .meta.facade import Facade
 from .module import ModuleRegister, Module
 
 
@@ -8,6 +10,8 @@ class Application(Container, ModuleRegister):
     def _initialize_container(self) -> None:
         self.singleton(Application, aliases=["Application"])
         self[Application] = self
+
+        Facade.set_container(self)
 
         for mod in self.modules:
             mod.register(self)

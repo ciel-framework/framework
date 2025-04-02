@@ -1,6 +1,6 @@
 import unittest
-from ciel.core.dependency_injection.container import Container  # type: ignore
-from ciel.core.dependency_injection.injector import Injector  # type: ignore
+from ciel.core.meta.container import Container  # type: ignore
+from ciel.core.meta.injector import Injector  # type: ignore
 
 
 class TestInjector(unittest.TestCase):

@@ -1,8 +1,10 @@
-from .module import HttpModule
+from .module import HTTPModule
+from .kernel import HTTPKernel
 from .http_objects import Request, Response
 
 __all__ = [
-    "HttpModule",
+    "HTTPModule",
     "Request",
     "Response",
+    "HTTPKernel",
 ]

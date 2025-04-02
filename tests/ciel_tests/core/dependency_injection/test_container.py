@@ -1,5 +1,5 @@
 import unittest
-from ciel.core.dependency_injection.container import Container, BindingIdentifier  # type: ignore
+from ciel.core.meta.container import Container, BindingIdentifier  # type: ignore
 
 
 class A:
@@ -116,7 +116,7 @@ class TestContainer(unittest.TestCase):
 
         obj = Dummy()
         self.container.transient(Dummy)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(RuntimeError):
             self.container.instance(Dummy, obj)
 
     def test_getitem_setitem(self) -> None:
@@ -142,3 +142,72 @@ class TestContainer(unittest.TestCase):
         instance = self.container.make(Dummy2)
 
         self.assertEqual(instance.test.test, 2)
+
+    def test_singleton_stack_push_pop(self) -> None:
+        class Dummy:
+            pass
+
+        obj1 = Dummy()
+        obj2 = Dummy()
+        self.container.singleton(Dummy)
+        self.container.instance(Dummy, obj1)
+        self.container.instance(Dummy, obj2)
+
+        self.assertIs(self.container.make(Dummy), obj2)
+        self.assertIs(self.container.pop(Dummy), obj2)
+        self.assertIs(self.container.make(Dummy), obj1)
+
+    def test_pop_empty_stack(self) -> None:
+        class Dummy:
+            pass
+
+        self.container.singleton(Dummy)
+        with self.assertRaises(IndexError):
+            self.container.pop(Dummy)
+
+    def test_pop_non_singleton(self) -> None:
+        class Dummy:
+            pass
+
+        self.container.transient(Dummy)
+        with self.assertRaises(RuntimeError):
+            self.container.pop(Dummy)
+
+    def test_multiple_instances_in_stack(self) -> None:
+        class Dummy:
+            pass
+
+        obj1 = Dummy()
+        obj2 = Dummy()
+        obj3 = Dummy()
+        self.container.singleton(Dummy)
+        self.container.instance(Dummy, obj1)
+        self.container.instance(Dummy, obj2)
+        self.container.instance(Dummy, obj3)
+
+        self.assertIs(self.container.make(Dummy), obj3)
+        self.assertIs(self.container.pop(Dummy), obj3)
+        self.assertIs(self.container.make(Dummy), obj2)
+        self.assertIs(self.container.pop(Dummy), obj2)
+        self.assertIs(self.container.make(Dummy), obj1)
+        self.assertIs(self.container.pop(Dummy), obj1)
+
+        with self.assertRaises(IndexError):
+            self.container.pop(Dummy)  # Stack should be empty now
+
+    def test_setitem_delitem(self) -> None:
+        class Dummy:
+            pass
+
+        obj1 = Dummy()
+        obj2 = Dummy()
+        self.container.singleton(Dummy)
+        self.container[Dummy] = obj1
+        self.container[Dummy] = obj2
+        self.assertIs(self.container[Dummy], obj2)
+        del self.container[Dummy]
+        self.assertIs(self.container[Dummy], obj1)
+        del self.container[Dummy]
+        obj3 = self.container[Dummy]
+        self.assertIsNot(obj3, obj1)
+        self.assertIsNot(obj3, obj2)

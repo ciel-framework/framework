@@ -23,8 +23,8 @@ class Parameter:
 class Injector(Generic[T]):
 
     def __init__(self, container: "Container", cl: Callable[..., T]) -> None:
-        self.container: "Container" = container
-        self.callable: Callable[..., T] = cl
+        self._container: "Container" = container
+        self._callable: Callable[..., T] = cl
 
         if isinstance(cl, type):
             to_inspect = cl.__init__  # type: ignore
@@ -71,8 +71,8 @@ class Injector(Generic[T]):
             if self.positional[i] in presence:
                 break
             param = self.param[self.positional[i]]
-            if param.annotation and self.container.is_bound(param.annotation):
-                res_args.append(self.container[param.annotation])
+            if param.annotation and self._container.is_bound(param.annotation):
+                res_args.append(self._container[param.annotation])
                 presence.add(param.name)
             else:
                 break
@@ -81,11 +81,11 @@ class Injector(Generic[T]):
             if k in presence:
                 continue
             param = self.param[k]
-            if param.annotation and self.container.is_bound(param.annotation):
-                res_kwargs[k] = self.container[param.annotation]
+            if param.annotation and self._container.is_bound(param.annotation):
+                res_kwargs[k] = self._container[param.annotation]
                 presence.add(param.name)
 
         missing = set(filter(lambda n: not self.param[n].has_default, set(self.param.keys()) - presence))
         if len(missing) > 0:
             raise ValueError(f"Missing parameters: {', '.join(missing)}")
-        return self.callable(*res_args, **res_kwargs)
+        return self._callable(*res_args, **res_kwargs)

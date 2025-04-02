@@ -1,26 +1,27 @@
 from collections import defaultdict
-from typing import Optional, Any, Tuple, Iterable, Dict
+from pathlib import PurePosixPath
+from typing import Optional, Any, Tuple, Iterable, Dict, Self
 from urllib.parse import quote, unquote
 
 from ciel.asgi.typing import HTTPScope, ASGIVersions, ASGIReceiveCallable, ASGISendCallable
 
 
-class HttpData:
+class HTTPData:
 
     @staticmethod
-    def from_query_string(data: bytes, readonly: bool = True) -> "HttpData":
+    def from_query_string(data: bytes, readonly: bool = True) -> "HTTPData":
         res: Dict[str, list[Optional[str]]] = defaultdict(list)
         for group in data.split(b"&"):
             kv = group.split(b"=", 1)
             res[unquote(kv[0].strip())].append(None if len(kv) == 1 else unquote(kv[1].strip()))
-        return HttpData(res, readonly, False)
+        return HTTPData(res, readonly, False)
 
     @staticmethod
-    def from_headers(data: Iterable[Tuple[bytes, bytes]], readonly: bool = True) -> "HttpData":
+    def from_headers(data: Iterable[Tuple[bytes, bytes]], readonly: bool = True) -> "HTTPData":
         res: Dict[str, list[Optional[str]]] = defaultdict(list)
         for key, value in data:
             res[unquote(key.strip())].append(unquote(value.strip()))
-        return HttpData(res, readonly, True)
+        return HTTPData(res, readonly, True)
 
     def __init__(self, data: Optional[dict[str, list[Optional[str]]]] = None, readonly: bool = False,
                  case_insensitive: bool = False) -> None:
@@ -85,13 +86,14 @@ class Request:
         self.http_version: str = scope["http_version"]
         self.method: str = scope["method"]
         self.scheme: str = scope["scheme"]
-        self.path: str = scope["path"]
+        p = PurePosixPath(scope["path"])
+        self.path: PurePosixPath = p.relative_to(PurePosixPath("/")) if p.is_absolute() else p
         self.raw_path: Optional[bytes] = scope.get("raw_path")
         self.query_string: bytes = scope["query_string"]
-        self.query_data: HttpData = HttpData.from_query_string(self.query_string)
+        self.query_data: HTTPData = HTTPData.from_query_string(self.query_string)
         self.root_path: str = scope.get("root_path", "")
         self.headers_raw: Iterable[Tuple[bytes, bytes]] = scope["headers"]
-        self.headers: HttpData = HttpData.from_headers(self.headers_raw)
+        self.headers: HTTPData = HTTPData.from_headers(self.headers_raw)
         self.client: Optional[Tuple[str, int]] = scope.get("client")
         self.server: Optional[Tuple[str, Optional[int]]] = scope.get("server")
         self.state: Optional[Dict[str, Any]] = scope.get("state")
@@ -110,10 +112,21 @@ class Response:
 
     def __init__(self) -> None:
         self.status: int = 200
-        self.headers: HttpData = HttpData(case_insensitive=True)
+        self.headers: HTTPData = HTTPData(case_insensitive=True)
         self.body: bytes = b""
 
-    async def send(self, send: ASGISendCallable):
+    def response(self, body: str|bytes, status: int = 200) -> Self:
+        if isinstance(body, str):
+            body = body.encode()
+        self.status = status
+        self.body = body
+        return self
+
+    def header(self, key: str, value: str) -> Self:
+        self.headers[key] = value
+        return self
+
+    async def send(self, send: ASGISendCallable) -> None:
 
         await send({
             "type": "http.response.start",

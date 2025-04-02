@@ -1,8 +1,10 @@
 from typing import Callable, Any, Optional, TypeVar, Generic
+
+from mypy.memprofile import defaultdict
+
 from .injector import Injector
 
 T = TypeVar("T")
-
 
 class BindingIdentifier(Generic[T]):
 
@@ -10,7 +12,7 @@ class BindingIdentifier(Generic[T]):
     def gen_name(contract: type) -> str:
         return f"{contract.__module__}.{contract.__qualname__}"
 
-    def __init__(self, contract: type[T]):
+    def __init__(self, contract: type[T]) -> None:
         self.contract = contract
         self.name = BindingIdentifier.gen_name(contract)
 
@@ -41,9 +43,9 @@ class Binding(Generic[T]):
 
 class Container:
     def __init__(self) -> None:
-        self.bindings: dict[BindingIdentifier[Any], Binding[Any]] = dict()
-        self.singletons: dict[BindingIdentifier[Any], Any] = dict()
-        self.aliases: dict[str, BindingIdentifier[Any]] = dict()
+        self._bindings: dict[BindingIdentifier[Any], Binding[Any]] = dict()
+        self._singletons: dict[BindingIdentifier[Any], list[Any]] = defaultdict(list)
+        self._aliases: dict[str, BindingIdentifier[Any]] = dict()
 
     def transient(
             self,
@@ -59,55 +61,58 @@ class Container:
     def _bind(self, contract: type[T], builder: Optional[Callable[..., T]], aliases: Optional[list[str]],
               singleton: bool) -> None:
         res = Binding(self, contract, builder, singleton)
-        self.bindings[res.id] = res
+        self._bindings[res.id] = res
         if aliases is not None:
             for alias in aliases:
-                self.aliases[alias] = res.id
+                self._aliases[alias] = res.id
+
+    def resolve_contract(self, contract: BindingIdentifier[T] | type[T] | str) -> BindingIdentifier[T]:
+        if isinstance(contract, str):
+            if contract in self._aliases:
+                bind_id = self._aliases[contract]
+            else:
+                raise KeyError(contract)
+        elif isinstance(contract, type):
+            bind_id = BindingIdentifier(contract)
+        else:
+            bind_id = contract
+        return bind_id
 
     def get_binding(self, contract: BindingIdentifier[T] | type[T] | str) -> Binding[T]:
-        if isinstance(contract, str):
-            if contract in self.aliases:
-                bind_id = self.aliases[contract]
-            else:
-                raise KeyError(contract)
-        elif isinstance(contract, type):
-            bind_id = BindingIdentifier(contract)
-        else:
-            bind_id = contract
+        bind_id = self.resolve_contract(contract)
 
-        if bind_id not in self.bindings:
+        if bind_id not in self._bindings:
             raise KeyError(bind_id.name)
 
-        return self.bindings[bind_id]
+        return self._bindings[bind_id]
 
     def is_bound(self, contract: BindingIdentifier[T] | type[T] | str) -> bool:
-        if isinstance(contract, str):
-            if contract in self.aliases:
-                bind_id = self.aliases[contract]
-            else:
-                raise KeyError(contract)
-        elif isinstance(contract, type):
-            bind_id = BindingIdentifier(contract)
-        else:
-            bind_id = contract
+        bind_id = self.resolve_contract(contract)
 
-        return bind_id in self.bindings
+        return bind_id in self._bindings
 
     def make(self, contract: BindingIdentifier[T] | type[T] | str, *args: Any, **kwargs: Any) -> T:
         binding = self.get_binding(contract)
-        if binding.singleton and binding.id in self.singletons:
-            return self.singletons[binding.id]  # type: ignore
+        if binding.singleton and self._singletons[binding.id]:
+            return self._singletons[binding.id][-1]  # type: ignore
         res = binding(*args, **kwargs)
         if binding.singleton:
-            self.singletons[binding.id] = res
+            self._singletons[binding.id].append(res)
         return res
 
     def instance(self, contract: BindingIdentifier[T] | type[T] | str, value: T) -> None:
         binding = self.get_binding(contract)
         if not binding.singleton:
-            raise ValueError("You can only set a instance for singletons.")
+            raise RuntimeError("You can only set an instance for singletons.")
 
-        self.singletons[binding.id] = value
+        self._singletons[binding.id].append(value)
+
+    def pop(self, contract: BindingIdentifier[T] | type[T] | str) -> T:
+        binding = self.get_binding(contract)
+        if not binding.singleton:
+            raise RuntimeError("You can only pop an instance for singletons.")
+
+        return self._singletons[binding.id].pop()
 
     def inject(self, cl: Callable[..., T]) -> Injector[T]:
         return Injector(self, cl)
@@ -117,6 +122,9 @@ class Container:
 
     def __setitem__(self, binding: str | type[T], value: T) -> None:
         self.instance(binding, value)
+
+    def __delitem__(self, binding: str | type[T]) -> None:
+        self.pop(binding)
 
     def __xor__(self, cl: Callable[..., T] | type) -> Injector[T]:
         return self.inject(cl)
